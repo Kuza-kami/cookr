@@ -1,0 +1,6 @@
+{
+  "name": "Cookr",
+  "description": "Cookr is a modern cooking and recipe assistant built with full Material 3 design guidelines.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
