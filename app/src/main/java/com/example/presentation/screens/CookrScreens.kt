@@ -319,6 +319,7 @@ fun IntroScreen(onSignUp: () -> Unit) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -386,7 +387,7 @@ fun IntroScreen(onSignUp: () -> Unit) {
                             }
                         }
 
-                        Spacer(modifier = Modifier.weight(1f))
+                        Spacer(modifier = Modifier.height(20.dp))
 
                         // Beautiful, accessible input fields
                         Column(
