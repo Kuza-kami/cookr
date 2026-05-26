@@ -15,6 +15,18 @@ interface CookrDao {
     @Query("SELECT * FROM recipes WHERE id = :id")
     fun getRecipeById(id: String): Flow<RecipeEntity?>
 
+    @Query("""
+        SELECT * FROM recipes 
+        WHERE title LIKE :query 
+           OR description LIKE :query 
+           OR category LIKE :query 
+           OR author LIKE :query 
+           OR ingredients LIKE :query 
+           OR instructions LIKE :query
+        ORDER BY id DESC
+    """)
+    fun searchRecipes(query: String): Flow<List<RecipeEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRecipe(recipe: RecipeEntity)
 

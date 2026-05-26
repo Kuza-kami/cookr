@@ -128,7 +128,7 @@ fun AppContent(viewModel: CookrViewModel) {
                     0 -> HomeScreen(
                         viewModel = viewModel,
                         onRecipeClick = { activeDetailRecipe = it },
-                        onProfileClick = { currentTab = 3 }
+                        onProfileClick = { currentTab = 4 }
                     )
                     1 -> DiscoverScreen(
                         viewModel = viewModel,
@@ -138,7 +138,11 @@ fun AppContent(viewModel: CookrViewModel) {
                         viewModel = viewModel,
                         onSuccessSave = { currentTab = 1 } // Redirect to Discover to see it!
                     )
-                    3 -> ProfileScreen(
+                    3 -> LibraryScreen(
+                        viewModel = viewModel,
+                        onRecipeClick = { activeDetailRecipe = it }
+                    )
+                    4 -> ProfileScreen(
                         viewModel = viewModel,
                         userName = userName,
                         onNameChange = { userName = it },
@@ -176,7 +180,8 @@ fun AppContent(viewModel: CookrViewModel) {
                             Triple(0, "Home", Icons.Outlined.Home),
                             Triple(1, "Discover", Icons.Outlined.Explore),
                             Triple(2, "Add", Icons.Outlined.MotionPhotosOn),
-                            Triple(3, "Profile", Icons.Outlined.Person)
+                            Triple(3, "Library", Icons.Outlined.MenuBook),
+                            Triple(4, "Profile", Icons.Outlined.Person)
                         ).forEach { (index, label, icon) ->
                             val active = currentTab == index
                             if (active) {
@@ -186,7 +191,7 @@ fun AppContent(viewModel: CookrViewModel) {
                                         .clip(CircleShape)
                                         .background(Color(0xFFFEE6A5)) // Beautiful warm Ghibli cream gold accent
                                         .clickable { currentTab = index }
-                                        .testTag(if (index == 0) "home_tab" else if (index == 1) "discover_tab" else if (index == 2) "add_recipe_tab" else "profile_tab"),
+                                        .testTag(if (index == 0) "home_tab" else if (index == 1) "discover_tab" else if (index == 2) "add_recipe_tab" else if (index == 3) "library_tab" else "profile_tab"),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -202,7 +207,7 @@ fun AppContent(viewModel: CookrViewModel) {
                                         .size(48.dp)
                                         .clip(CircleShape)
                                         .clickable { currentTab = index }
-                                        .testTag(if (index == 0) "home_tab" else if (index == 1) "discover_tab" else if (index == 2) "add_recipe_tab" else "profile_tab"),
+                                        .testTag(if (index == 0) "home_tab" else if (index == 1) "discover_tab" else if (index == 2) "add_recipe_tab" else if (index == 3) "library_tab" else "profile_tab"),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -947,6 +952,8 @@ fun BrowseScreen(
         ) {
             listOf("All", "Breakfast", "Quick Meals", "Vegan", "Desserts", "Kids Selection").forEach { cat ->
                 val active = selectedCat == cat
+                val bgColor by animateColorAsState(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                val textColor by animateColorAsState(if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                 Box(
                     modifier = Modifier
                         .border(
@@ -955,14 +962,14 @@ fun BrowseScreen(
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                        .background(bgColor)
                         .clickable { selectedCat = cat }
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
                         text = cat,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        color = textColor,
                         fontSize = 12.sp
                     )
                 }
@@ -1175,7 +1182,7 @@ fun RecipeDetailOverlay(
     val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     
     var inputServings by remember { mutableStateOf(recipe.servings) }
-    var selectedTabByStep by remember { mutableStateOf(0) } // 0: Ingredients, 1: Steps, 2: Nutrition, 3: Reviews
+    var selectedTabByStep by remember { mutableStateOf(0) } // 0: Ingredients, 1: Steps, 2: Nutrition
     
     // Tappable star rating state
     var dynamicRating by remember { mutableStateOf(recipe.rating) }
@@ -1184,22 +1191,6 @@ fun RecipeDetailOverlay(
     var cookTimerSeconds by remember { mutableStateOf(recipe.instructions.size * 120) }
     var cookTimerTotalSeconds by remember { mutableStateOf(recipe.instructions.size * 120) }
     var isTimerRunning by remember { mutableStateOf(false) }
-    
-    // Dialog overlays
-    var showPrintPreview by remember { mutableStateOf(false) }
-    var showQrDialog by remember { mutableStateOf(false) }
-    var showNfcDialog by remember { mutableStateOf(false) }
-
-    // Reviews local state
-    var reviewerName by remember { mutableStateOf("") }
-    var reviewText by remember { mutableStateOf("") }
-    var reviewRating by remember { mutableStateOf(5) }
-    val initialReviews = remember {
-        mutableStateListOf(
-            "Chihiro Ogino" to "Tasted exactly like the golden buns! Warm, perfectly fluffy structure, highly nostalgic.",
-            "Calcifer" to "The fire-roasted touch on the sesame seeds made it perfectly cozy. High heat was key, 5/5 stars!"
-        )
-    }
 
     // Ingredients checked state mapping
     val checkedIngredients = remember { mutableStateMapOf<String, Boolean>() }
@@ -1273,120 +1264,64 @@ fun RecipeDetailOverlay(
                     )
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                            .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Presented by ${recipe.author}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            (1..5).forEach { star ->
-                                val active = dynamicRating.toInt() >= star
-                                Icon(
-                                    imageVector = if (active) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                    contentDescription = "Star",
-                                    tint = if (active) Color(0xFFFFD700) else Color.Gray,
-                                    modifier = Modifier
-                                        .size(22.dp)
-                                        .clickable {
-                                            dynamicRating = star.toFloat()
-                                            Toast.makeText(context, "You rated this recipe $star/5 stars! 🌟", Toast.LENGTH_SHORT).show()
-                                        }
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("(%.1f)".format(dynamicRating), fontSize = 12.sp, fontWeight = FontWeight.Black)
-                        }
-                    }
-
-                    // --- ACTION BANK: SHARE / SAVE (HEART) / PRINT / QR / NFC ---
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // SAVE
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp)
-                                .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (recipe.isSaved) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-                                .clickable { viewModel.toggleSaveRecipe(recipe) }
-                                .padding(horizontal = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Column {
+                            Text(
+                                text = "Presented by ${recipe.author}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (recipe.isSaved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                    contentDescription = "Heart",
-                                    tint = if (recipe.isSaved) Color.Red else MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(if (recipe.isSaved) "Saved" else "Save", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                (1..5).forEach { star ->
+                                    val active = dynamicRating.toInt() >= star
+                                    Icon(
+                                        imageVector = if (active) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                        contentDescription = "Star",
+                                        tint = if (active) Color(0xFFFFD700) else Color.Gray,
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .clickable {
+                                                dynamicRating = star.toFloat()
+                                                Toast.makeText(context, "You rated this recipe $star/5 stars! 🌟", Toast.LENGTH_SHORT).show()
+                                            }
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("(%.1f)".format(dynamicRating), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
-                        // PRINT
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp)
-                                .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable { showPrintPreview = true }
-                                .padding(horizontal = 4.dp),
-                            contentAlignment = Alignment.Center
+                        Button(
+                            onClick = { viewModel.toggleSaveRecipe(recipe) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (recipe.isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                contentColor = if (recipe.isSaved) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.height(38.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Print, contentDescription = "Print", modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("Print", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        // QR Share
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp)
-                                .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable { showQrDialog = true }
-                                .padding(horizontal = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.QrCode, contentDescription = "QR Share", modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("QR", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        // NFC Beam
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp)
-                                .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .clickable { showNfcDialog = true }
-                                .padding(horizontal = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Nfc, contentDescription = "NFC Beam", modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text("NFC", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
+                            Icon(
+                                imageVector = if (recipe.isSaved) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                contentDescription = "Heart",
+                                tint = if (recipe.isSaved) Color.Red else Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (recipe.isSaved) "Saved" else "Save",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
 
@@ -1399,38 +1334,217 @@ fun RecipeDetailOverlay(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    // Times & portions row
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    // --- BENTO-BOX LAYOUT FOR METADATA ---
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf(
-                            Triple("PREP", recipe.prepTime, MaterialTheme.colorScheme.surfaceVariant),
-                            Triple("COOK", recipe.cookTime, MaterialTheme.colorScheme.surfaceVariant),
-                            Triple("CALORIES", "${recipe.calories} kcal", MaterialTheme.colorScheme.secondaryContainer)
-                        ).forEach { (lbl, valStr, colorScheme) ->
-                            Box(
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Box 1: Energy & Calories (Top Left)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1.1f)
+                                    .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Whatshot,
+                                        contentDescription = "Energy",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "ENERGY",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "${recipe.calories}",
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    lineHeight = 28.sp
+                                )
+                                Text(
+                                    text = "kcal / serve",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                )
+                            }
+
+                            // Box 2: Time Estimations (Top Right)
+                            Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                                    .background(colorScheme)
-                                    .padding(8.dp),
-                                contentAlignment = Alignment.Center
+                                    .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .padding(12.dp)
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(lbl, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                    Text(valStr, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.AccessTime,
+                                        contentDescription = "Timing",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "TIMING",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Prep:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), fontWeight = FontWeight.Medium)
+                                    Text(recipe.prepTime, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .height(1.dp)
+                                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Cook:", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), fontWeight = FontWeight.Medium)
+                                    Text(recipe.cookTime, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Box 3: Portion & Category (Bottom Left)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                                    .padding(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Restaurant,
+                                        contentDescription = "Yield",
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "PORTION",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "$inputServings Serves",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = recipe.category.ifEmpty { "Culinary" },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                )
+                            }
+
+                            // Box 4: Macro Nutrients Profile (Bottom Right)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1.1f)
+                                    .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                    .padding(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Eco,
+                                        contentDescription = "Macros",
+                                        tint = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "MACROS",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Protein", fontSize = 11.sp, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f))
+                                    Text("${recipe.protein}g", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Carbs", fontSize = 11.sp, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f))
+                                    Text("${recipe.carbs}g", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Fat", fontSize = 11.sp, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f))
+                                    Text("${recipe.fat}g", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
                                 }
                             }
                         }
                     }
 
-                    // --- FOUR TAB OPTIONS FOR INFO CORE ---
+                    // --- THREE TAB OPTIONS FOR INFO CORE ---
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        listOf("Ingredients", "Steps & Timers", "Nutrition", "Reviews").forEachIndexed { idx, tabTitle ->
+                        listOf("Ingredients", "Steps & Timers", "Nutrition").forEachIndexed { idx, tabTitle ->
                             val active = selectedTabByStep == idx
                             Box(
                                 modifier = Modifier
@@ -1819,387 +1933,9 @@ fun RecipeDetailOverlay(
                                 }
                             }
                         }
-
-                        3 -> {
-                            // --- REVIEWS TAB ---
-                            // Write review inputs form
-                            NeoCard(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 16.dp),
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                shadowColor = MaterialTheme.colorScheme.outline
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text("Submit Community Review ✒️", fontSize = 13.sp, fontWeight = FontWeight.Black)
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    NeoTextField(
-                                        value = reviewerName,
-                                        onValueChange = { reviewerName = it },
-                                        placeholder = { Text("Your name (Sophie Hatter, etc.)", fontSize = 11.sp) }
-                                    )
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    NeoTextField(
-                                        value = reviewText,
-                                        onValueChange = { reviewText = it },
-                                        placeholder = { Text("Describe details of the culinary finish...", fontSize = 11.sp) }
-                                    )
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    // Interactive Star rating selectors
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Score Rating:", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        (1..5).forEach { star ->
-                                            IconButton(
-                                                onClick = { reviewRating = star },
-                                                modifier = Modifier.size(24.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = if (reviewRating >= star) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                                    contentDescription = "rating selectors",
-                                                    tint = if (reviewRating >= star) Color(0xFFFFD700) else Color.Gray,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    NeoButton(
-                                        onClick = {
-                                            if (reviewerName.isNotBlank() && reviewText.isNotBlank()) {
-                                                initialReviews.add(0, Pair(reviewerName, reviewText))
-                                                reviewerName = ""
-                                                reviewText = ""
-                                                Toast.makeText(context, "Review uploaded successfully! 🧑‍🍳", Toast.LENGTH_SHORT).show()
-                                            } else {
-                                                Toast.makeText(context, "Please fill out all fields!", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Text("Submit Review to Syndicate Feed", fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-
-                            // Dynamic reviews list
-                            for (pair in initialReviews) {
-                                val usr = pair.first
-                                val review = pair.second
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
-                                        .border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-                                        .background(Color.White)
-                                        .padding(10.dp),
-                                    verticalAlignment = Alignment.Top
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                                            .border(1.dp, Color.Black, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(usr.take(1).uppercase(), fontSize = 14.sp, fontWeight = FontWeight.Black)
-                                    }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(usr, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                                            Row {
-                                                (1..5).forEach { _ ->
-                                                    Icon(Icons.Filled.Star, contentDescription = "star", tint = Color(0xFFFFD700), modifier = Modifier.size(10.dp))
-                                                }
-                                            }
-                                        }
-                                        Text(review, fontSize = 11.sp, color = MaterialTheme.colorScheme.outline, lineHeight = 15.sp)
-                                    }
-                                }
-                            }
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(30.dp))
-                }
-            }
-        }
-
-        // --- RETRO PARCHMENT RECEIPT MOCK PRINT PREVIEW DIALOG ---
-        if (showPrintPreview) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.75f))
-                    .clickable { showPrintPreview = false }
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                NeoCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .clickable(enabled = false) {},
-                    containerColor = Color(0xFFFFF9C4), // Vintage yellow parchment paper
-                    shadowColor = Color.Black
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "== COOKR RECIPE REPORT == ",
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color.Black
-                        )
-                        Text(
-                            text = "STORY DELICATESSEN LTD",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            color = Color.Black
-                        )
-                        
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = "-------------------------",
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.Black
-                        )
-                        
-                        Text(
-                            text = recipe.title.uppercase(),
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color.Black
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Text(
-                            text = "PREP TIME: ${recipe.prepTime}",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            color = Color.Black,
-                            modifier = Modifier.align(Alignment.Start)
-                        )
-                        Text(
-                            text = "COOK TIME: ${recipe.cookTime}",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            color = Color.Black,
-                            modifier = Modifier.align(Alignment.Start)
-                        )
-                        Text(
-                            text = "SERVINGS : $inputServings PORTION",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            color = Color.Black,
-                            modifier = Modifier.align(Alignment.Start)
-                        )
-
-                        Text(
-                            text = "-------------------------",
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.Black
-                        )
-
-                        Text(
-                            text = "INGREDIENTS CHECKLIST:",
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            modifier = Modifier.align(Alignment.Start),
-                            color = Color.Black
-                        )
-
-                        recipe.ingredients.forEach { ing ->
-                            Text(
-                                text = "- [ ] $ing",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                modifier = Modifier.align(Alignment.Start),
-                                color = Color.Black
-                            )
-                        }
-
-                        Text(
-                            text = "-------------------------",
-                            fontFamily = FontFamily.Monospace,
-                            color = Color.Black
-                        )
-
-                        Text(
-                            text = "THANK YOU FOR COOKING!",
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = Color.Black
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextButton(onClick = { showPrintPreview = false }) {
-                                Text("Cancel", color = Color.Black, fontWeight = FontWeight.Bold)
-                            }
-                            NeoButton(
-                                onClick = {
-                                    Toast.makeText(context, "Transmitting data to local Ghibli Printer... 📠", Toast.LENGTH_LONG).show()
-                                    showPrintPreview = false
-                                },
-                                containerColor = Color.White
-                            ) {
-                                Text("Print Now", color = Color.Black, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- MOCK QR CODE OVERLAY ---
-        if (showQrDialog) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.75f))
-                    .clickable { showQrDialog = false }
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                NeoCard(
-                    modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .wrapContentHeight()
-                        .clickable(enabled = false) {},
-                    containerColor = MaterialTheme.colorScheme.background,
-                    shadowColor = Color.Black
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Ghibli QR Syndicate Share", fontSize = 16.sp, fontWeight = FontWeight.Black)
-                        Text("Hold camera near matrix to import into another Cookr instance", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 12.dp))
-                        
-                        // Fake QR Code Matrix
-                        Box(
-                            modifier = Modifier
-                                .size(200.dp)
-                                .border(3.dp, Color.Black, RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                (1..8).forEach { r ->
-                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        (1..8).forEach { c ->
-                                            val filled = (r + c) % 3 == 0 || (r == 1 && c == 1) || (r == 1 && c == 8) || (r == 8 && c == 1) || (r in 5..6 && c in 5..6)
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(20.dp)
-                                                    .background(if (filled) Color.Black else Color.White)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        NeoButton(
-                            onClick = { showQrDialog = false },
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Dismiss QR Link", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- MOCK NFC BEAM OVERLAY ---
-        if (showNfcDialog) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.75f))
-                    .clickable { showNfcDialog = false }
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                NeoCard(
-                    modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .wrapContentHeight()
-                        .clickable(enabled = false) {},
-                    containerColor = MaterialTheme.colorScheme.background,
-                    shadowColor = Color.Black
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Nfc,
-                            contentDescription = "NFC active",
-                            modifier = Modifier.size(72.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("NFC Sharing Transceiver Active", fontSize = 16.sp, fontWeight = FontWeight.Black)
-                        Text(
-                            text = "Ghibli Beam wave is active for \"${recipe.title}\"! Hold devices spine-to-spine to automatically beam ingredients.",
-                            fontSize = 12.sp,
-                            color = Color.DarkGray,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
-                        )
-                        
-                        // Wave animation visualization
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            listOf(0.4f, 0.7f, 1f, 0.7f, 0.4f).forEach { op ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = op))
-                                )
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        NeoButton(
-                            onClick = { showNfcDialog = false },
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Deactivate NFC Beam", fontWeight = FontWeight.Bold)
-                        }
-                    }
                 }
             }
         }
@@ -3454,6 +3190,11 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
+        // --- DYNAMIC MEAL OF THE DAY ---
+        HomeDynamicMealWidget(recipes = recipes)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // --- AI RECOMMENDATION HERO CARD ---
         featuredRecipe?.let { recipe ->
             NeoCard(
@@ -3795,6 +3536,8 @@ fun HomeScreen(
         ) {
             listOf("All", "Breakfast", "Quick Meals", "Vegan", "Desserts", "Kids Selection").forEach { cat ->
                 val active = selectedCat == cat
+                val bgColor by animateColorAsState(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                val textColor by animateColorAsState(if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
                 Box(
                     modifier = Modifier
                         .border(
@@ -3803,14 +3546,14 @@ fun HomeScreen(
                             shape = RoundedCornerShape(14.dp)
                         )
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                        .background(bgColor)
                         .clickable { selectedCat = cat }
                         .padding(horizontal = 14.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = cat,
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        color = textColor,
                         fontSize = 11.sp
                     )
                 }
@@ -3882,6 +3625,27 @@ fun HomeScreen(
     }
 }
 
+private fun getSearchMatchLabel(recipe: Recipe, query: String): String? {
+    if (query.isBlank()) return null
+    val q = query.lowercase().trim()
+    
+    val matchedIng = recipe.ingredients.firstOrNull { it.lowercase().contains(q) }
+    if (matchedIng != null) {
+        return "Ingredient: \"${matchedIng.trim()}\""
+    }
+    
+    val matchedInst = recipe.instructions.firstOrNull { it.lowercase().contains(q) }
+    if (matchedInst != null) {
+        return "Instruction: \"${matchedInst.trim()}\""
+    }
+    
+    if (!recipe.title.lowercase().contains(q) && recipe.description.lowercase().contains(q)) {
+        return "Description: \"${recipe.description.trim()}\""
+    }
+    
+    return null
+}
+
 // ------------------- DISCOVER TABS SCREEN -------------------
 @Composable
 fun DiscoverScreen(
@@ -3891,13 +3655,14 @@ fun DiscoverScreen(
     val recipes by viewModel.allRecipes.collectAsState()
     val submissionVotesVal by viewModel.submissionVotes.collectAsState()
     
-    var searchQuery by remember { mutableStateOf("") }
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchedRecipes by viewModel.searchedRecipes.collectAsState()
     var selectedCuisine by remember { mutableStateOf("All Cuisines") }
 
     // Cuisine mapping helper
     val cuisineFilters = listOf("All Cuisines", "Japanese Miso", "French Bakery", "Italian Pasta", "Campfire", "Palace Delights", "Forest Foraged")
 
-    val filteredRecipes = recipes.filter { recipe ->
+    val filteredRecipes = searchedRecipes.filter { recipe ->
         val matchesCuisine = when (selectedCuisine) {
             "All Cuisines" -> true
             "Japanese Miso" -> recipe.category == "Quick Meals" || recipe.title.lowercase().contains("ramen") || recipe.title.lowercase().contains("soup")
@@ -3909,11 +3674,7 @@ fun DiscoverScreen(
             else -> true
         }
 
-        val matchesSearch = recipe.title.lowercase().contains(searchQuery.lowercase()) ||
-                recipe.description.lowercase().contains(searchQuery.lowercase()) ||
-                recipe.ingredients.any { it.lowercase().contains(searchQuery.lowercase()) }
-
-        matchesCuisine && matchesSearch
+        matchesCuisine
     }
 
     Column(
@@ -3940,7 +3701,7 @@ fun DiscoverScreen(
         // --- SEARCH BAR ---
         NeoTextField(
             value = searchQuery,
-            onValueChange = { searchQuery = it },
+            onValueChange = { viewModel.searchQuery.value = it },
             placeholder = { Text("Search dishes, ingredients, cuisines...", fontSize = 13.sp) },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = "Search icon") },
             modifier = Modifier.fillMaxWidth()
@@ -4176,6 +3937,32 @@ fun DiscoverScreen(
                         Column {
                             Text(recipe.title, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                             Text("${recipe.prepTime} | ${recipe.category}", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                            
+                            val matchLabel = remember(recipe, searchQuery) { getSearchMatchLabel(recipe, searchQuery) }
+                            if (matchLabel != null) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(10.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = matchLabel,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -4222,6 +4009,33 @@ fun DiscoverScreen(
                                         color = MaterialTheme.colorScheme.outline,
                                         textAlign = TextAlign.Center
                                     )
+                                    
+                                    val matchLabel = remember(recipe, searchQuery) { getSearchMatchLabel(recipe, searchQuery) }
+                                    if (matchLabel != null) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.Center,
+                                            modifier = Modifier
+                                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Search,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(10.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = matchLabel,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -5955,4 +5769,280 @@ fun ProfileOptionItem(
     expandedContent: @Composable () -> Unit
 ) {
     LegacyProfileOptionItem(icon, title, isExpanded, onClick, expandedContent)
+}
+
+@Composable
+fun LibraryScreen(
+    viewModel: CookrViewModel,
+    onRecipeClick: (Recipe) -> Unit
+) {
+    val recipes by viewModel.allRecipes.collectAsState()
+    
+    // The library shows saved recipes or recipes the user created
+    val libraryRecipes = recipes.filter { it.isSaved || it.isUserSubmitted }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 32.dp, bottom = 96.dp)
+    ) {
+        item {
+            Text(
+                text = "Your Library",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                text = "Saved and created recipes",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            MealPlannerWidget(viewModel = viewModel)
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Text(
+                text = "Saved Collection",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        
+        if (libraryRecipes.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(300.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No saved recipes yet.\nGo discover some or create your own!",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeDynamicMealWidget(recipes: List<Recipe>) {
+    val localTime = java.time.LocalTime.now()
+    val hour = localTime.hour
+    
+    val (mealCategory, mealIcon) = when {
+        hour in 5..10 -> "Breakfast" to "🥞"
+        hour in 11..14 -> "Lunch" to "🥗"
+        hour in 15..17 -> "Snack" to "🍎"
+        hour in 18..21 -> "Dinner" to "🍲"
+        else -> "Dessert" to "🍰"
+    }
+
+    val matchingRecipes = recipes.filter { it.isSaved || it.isUserSubmitted }.ifEmpty { recipes.take(3) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = "$mealIcon  It's time for $mealCategory", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        if (matchingRecipes.isEmpty()) {
+            NeoCard(
+                modifier = Modifier.fillMaxWidth().height(120.dp),
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                borderWidth = 2.dp
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No meals saved yet. Go to Library to plan!")
+                }
+            }
+        } else {
+            val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { matchingRecipes.size })
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                pageSpacing = 16.dp
+            ) { page ->
+                val size = matchingRecipes.size
+                if (size > 0) {
+                    val recipe = matchingRecipes[page % size]
+                    NeoCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        borderWidth = 3.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(recipe.title.take(1), fontSize = 24.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(recipe.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1)
+                                    Text("${recipe.prepTime} • ${recipe.calories} cals", fontSize = 12.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha=0.7f))
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                    .border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.ArrowForward, contentDescription = "Go", tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MealPlannerWidget(viewModel: CookrViewModel) {
+    var selectedTab by remember { mutableStateOf("Today") }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+                .border(2.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                .padding(4.dp)
+        ) {
+            val todayBgColor by animateColorAsState(if(selectedTab=="Today") MaterialTheme.colorScheme.onSurface else Color.Transparent)
+            val todayTextColor by animateColorAsState(if(selectedTab == "Today") MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(todayBgColor, RoundedCornerShape(12.dp))
+                    .clickable{ selectedTab = "Today"}
+                    .padding(vertical = 12.dp), 
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Today's Meals", color = todayTextColor, fontWeight = FontWeight.Bold)
+            }
+            val weeklyBgColor by animateColorAsState(if(selectedTab=="Weekly") MaterialTheme.colorScheme.onSurface else Color.Transparent)
+            val weeklyTextColor by animateColorAsState(if(selectedTab == "Weekly") MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(weeklyBgColor, RoundedCornerShape(12.dp))
+                    .clickable{ selectedTab = "Weekly"}
+                    .padding(vertical = 12.dp), 
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Weekly Plan", color = weeklyTextColor, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Daily/Weekly Tracker Card
+        NeoCard(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            shadowColor = null,
+            borderWidth = 2.dp
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val days = listOf("S", "M", "T", "W", "T", "F", "S")
+                    val dates = listOf("9", "10", "11", "12", "13", "14", "15")
+                    // Assuming today is 12 -> index 3 (W)
+                    for (i in 0..6) {
+                        val isSelected = dates[i] == "12"
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .then(if (isSelected) Modifier.background(MaterialTheme.colorScheme.onPrimaryContainer, RoundedCornerShape(12.dp)).padding(vertical = 8.dp, horizontal = 10.dp) else Modifier.padding(vertical = 8.dp, horizontal = 10.dp))
+                        ) {
+                            Text(days[i], fontSize = 12.sp, color = if(isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(dates[i], fontSize = 14.sp, color = if(isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(if (selectedTab == "Today") "Today's Meals" else "Weekly Overview", fontSize = 18.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        MealSlotCard(title = "Breakfast", emoji = "☕", defaultCals = "350 cal", defaultFood = "Avocado Toast", hasContent = true)
+        Spacer(modifier = Modifier.height(12.dp))
+        MealSlotCard(title = "Lunch", emoji = "🥗", defaultCals = "-- cal", defaultFood = "Add what you're eating", hasContent = false)
+        Spacer(modifier = Modifier.height(12.dp))
+        MealSlotCard(title = "Dinner", emoji = "🍝", defaultCals = "-- cal", defaultFood = "Add what you're eating", hasContent = false)
+        Spacer(modifier = Modifier.height(12.dp))
+        MealSlotCard(title = "Dessert", emoji = "🍰", defaultCals = "-- cal", defaultFood = "Add sweet treat", hasContent = false)
+        
+    }
+}
+
+@Composable
+fun MealSlotCard(title: String, emoji: String, defaultCals: String, defaultFood: String, hasContent: Boolean) {
+    NeoCard(
+        modifier = Modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.surface,
+        borderWidth = 2.dp,
+        onClick = {}
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(emoji, fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(title, fontSize = 16.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(defaultCals, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f), fontWeight = FontWeight.Bold)
+                }
+                Icon(Icons.Filled.Add, contentDescription = "Add Meal", tint = MaterialTheme.colorScheme.onSurface)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (hasContent) "🥑" else "➕", fontSize = 32.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(defaultFood, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (hasContent) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f))
+                        if (hasContent) {
+                            Text("1 serving", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f))
+                        }
+                    }
+                }
+                if (hasContent) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(24.dp).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Icon(Icons.Filled.Close, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha=0.6f))
+                    }
+                }
+            }
+        }
+    }
 }

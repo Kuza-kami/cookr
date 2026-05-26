@@ -8,23 +8,38 @@ import com.example.domain.model.Recipe
 import com.example.domain.model.CalorieLog
 import com.example.domain.model.GroceryItem
 import com.example.domain.repository.CookrRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 
 class CookrRepositoryImpl(
     private val cookrDao: CookrDao
 ) : CookrRepository {
 
     override fun getAllRecipes(): Flow<List<Recipe>> {
-        return cookrDao.getAllRecipes().map { list -> list.map { it.toDomain() } }
+        return cookrDao.getAllRecipes()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
     }
 
     override fun getSavedRecipes(): Flow<List<Recipe>> {
-        return cookrDao.getSavedRecipes().map { list -> list.map { it.toDomain() } }
+        return cookrDao.getSavedRecipes()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
     }
 
     override fun getRecipeById(id: String): Flow<Recipe?> {
-        return cookrDao.getRecipeById(id).map { it?.toDomain() }
+        return cookrDao.getRecipeById(id)
+            .map { it?.toDomain() }
+            .flowOn(Dispatchers.IO)
+    }
+
+    override fun searchRecipes(query: String): Flow<List<Recipe>> {
+        val searchQuery = "%$query%"
+        return cookrDao.searchRecipes(searchQuery)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
     }
 
     override suspend fun saveRecipe(recipe: Recipe) {
@@ -40,7 +55,9 @@ class CookrRepositoryImpl(
     }
 
     override fun getAllCalorieLogs(): Flow<List<CalorieLog>> {
-        return cookrDao.getAllCalorieLogs().map { list -> list.map { it.toDomain() } }
+        return cookrDao.getAllCalorieLogs()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
     }
 
     override suspend fun saveCalorieLog(log: CalorieLog) {
@@ -56,7 +73,9 @@ class CookrRepositoryImpl(
     }
 
     override fun getAllGroceries(): Flow<List<GroceryItem>> {
-        return cookrDao.getAllGroceries().map { list -> list.map { it.toDomain() } }
+        return cookrDao.getAllGroceries()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(Dispatchers.IO)
     }
 
     override suspend fun saveGroceryItem(item: GroceryItem) {

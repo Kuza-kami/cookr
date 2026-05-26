@@ -114,7 +114,9 @@ dependencies {
   implementation(libs.retrofit)
   implementation(libs.work.runtime.ktx)
   implementation(libs.androidx.glance.appwidget)
-  // implementation(libs.jaudiotagger)
+  implementation(libs.jaudiotagger)
+  implementation(libs.hilt.android)
+  implementation(libs.androidx.hilt.navigation.compose)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -133,4 +135,5 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+  "ksp"(libs.hilt.compiler)
 }

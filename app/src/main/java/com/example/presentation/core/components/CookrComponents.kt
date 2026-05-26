@@ -18,9 +18,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.scale
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.LocalIndication
+
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.runtime.getValue
-import androidx.compose.animation.core.animateFloat
 
 // Custom Neo-Brutalism Shadow Modifier
 fun Modifier.neoShadow(
@@ -51,8 +57,16 @@ fun NeoCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && onClick != null) 0.97f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "neoCardScale"
+    )
+
     // Elevate with custom draw modifier
-    var cardModifier = modifier
+    var cardModifier = modifier.scale(scale)
     if (shadowColor != null) {
         cardModifier = cardModifier.neoShadow(color = shadowColor, offsetX = shadowOffset, offsetY = shadowOffset, shape = shape)
     }
@@ -62,7 +76,7 @@ fun NeoCard(
         .background(containerColor)
 
     if (onClick != null) {
-        cardModifier = cardModifier.clickable { onClick() }
+        cardModifier = cardModifier.clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onClick() }
     }
 
     Column(
@@ -83,13 +97,22 @@ fun NeoButton(
     shape: RoundedCornerShape = RoundedCornerShape(12.dp),
     content: @Composable RowScope.() -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "neoButtonScale"
+    )
+
     Box(
         modifier = modifier
+            .scale(scale)
             .neoShadow(color = shadowColor, offsetX = shadowOffset, offsetY = shadowOffset, shape = shape)
             .border(BorderStroke(borderWidth, borderColor), shape)
             .clip(shape)
             .background(containerColor)
-            .clickable { onClick() }
+            .clickable(interactionSource = interactionSource, indication = LocalIndication.current) { onClick() }
             .padding(horizontal = 24.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {

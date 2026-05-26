@@ -10,6 +10,7 @@ interface CookrRepository {
     fun getAllRecipes(): Flow<List<Recipe>>
     fun getSavedRecipes(): Flow<List<Recipe>>
     fun getRecipeById(id: String): Flow<Recipe?>
+    fun searchRecipes(query: String): Flow<List<Recipe>>
     suspend fun saveRecipe(recipe: Recipe)
     suspend fun deleteRecipe(id: String)
     suspend fun saveRecipes(recipes: List<Recipe>)
