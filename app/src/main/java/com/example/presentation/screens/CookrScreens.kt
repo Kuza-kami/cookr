@@ -1651,7 +1651,7 @@ fun RecipeDetailOverlay(
                                     } else {
                                         originalIngredient
                                     }
-                                } catch (e: Exception) {
+                                } catch (e: Throwable) {
                                     originalIngredient
                                 }
 

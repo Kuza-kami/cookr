@@ -76,7 +76,7 @@ fun PhotoAnalyzerScreen(
                     val scaled = scaleBitmapDown(bitmap, 800)
                     activeBitmap = scaled
                     Toast.makeText(context.applicationContext, "Image loaded successfully!", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     e.printStackTrace()
                     Toast.makeText(context.applicationContext, "Failed to load image: ${e.message}", Toast.LENGTH_LONG).show()
                 }
@@ -146,7 +146,7 @@ fun PhotoAnalyzerScreen(
                             .clickable {
                                 try {
                                     galleryLauncher.launch("image/*")
-                                } catch (e: Exception) {
+                                } catch (e: Throwable) {
                                     Toast.makeText(context, "System gallery app not available on this device", Toast.LENGTH_LONG).show()
                                 }
                             },
@@ -194,7 +194,7 @@ fun PhotoAnalyzerScreen(
                             onClick = {
                                 try {
                                     galleryLauncher.launch("image/*")
-                                } catch (e: Exception) {
+                                } catch (e: Throwable) {
                                     Toast.makeText(context, "System gallery app not available on this device", Toast.LENGTH_LONG).show()
                                 }
                             },
@@ -212,12 +212,14 @@ fun PhotoAnalyzerScreen(
                             onClick = {
                                 // Simulate Quick Camera Snapshot using mock local resource loading as sample simulation
                                 imageUri = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500"
-                                scope.launch(Dispatchers.IO) {
+                                scope.launch {
                                     try {
-                                        // Load default testing bitmap asynchronously
-                                        val testBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
+                                        // Load default testing bitmap asynchronously on IO thread, then assign on main thread
+                                        val testBitmap = withContext(Dispatchers.IO) {
+                                            Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
+                                        }
                                         activeBitmap = testBitmap
-                                    } catch (e: Exception) {
+                                    } catch (e: Throwable) {
                                         e.printStackTrace()
                                     }
                                 }
@@ -251,9 +253,15 @@ fun PhotoAnalyzerScreen(
                         Card(
                             onClick = {
                                 imageUri = preset.url
-                                scope.launch(Dispatchers.IO) {
-                                    val dummy = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
-                                    activeBitmap = dummy
+                                scope.launch {
+                                    try {
+                                        val dummy = withContext(Dispatchers.IO) {
+                                            Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
+                                        }
+                                        activeBitmap = dummy
+                                    } catch (e: Throwable) {
+                                        e.printStackTrace()
+                                    }
                                 }
                                 Toast.makeText(context, "Loaded preset: ${preset.title}", Toast.LENGTH_SHORT).show()
                             },

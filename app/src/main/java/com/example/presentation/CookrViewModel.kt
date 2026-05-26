@@ -132,14 +132,14 @@ class CookrViewModel(
                 if (list.isEmpty()) {
                     populateDefaultGhibliRecipes()
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             }
         }
         viewModelScope.launch(Dispatchers.Main) {
             try {
                 textToSpeech = TextToSpeech(application, this@CookrViewModel)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             }
         }
@@ -151,7 +151,7 @@ class CookrViewModel(
                 textToSpeech?.language = Locale.US
                 isTtsReady.value = true
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
             isTtsReady.value = false
         }
@@ -162,7 +162,7 @@ class CookrViewModel(
             try {
                 textToSpeech?.stop()
                 textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "step_instruction")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
             }
         }
@@ -409,7 +409,7 @@ class CookrViewModel(
                 
                 // Fallback simulation generator with high-quality recipes so the user gets excellent instant feedback
                 simulateGeneratingRecipe(prompt)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 // In case of error, gracefully fallback to high quality simulated generation so user app never crashes
                 simulateGeneratingRecipe(prompt)
             }
@@ -460,7 +460,7 @@ class CookrViewModel(
 
                 // Graceful fallback simulation if key is empty or network error occurs
                 simulatePhotoAnalysisFallback()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 e.printStackTrace()
                 simulatePhotoAnalysisFallback()
             }
@@ -569,7 +569,7 @@ class CookrViewModel(
                 isUserSubmitted = false,
                 photoRank = 0
             )
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             null
         }
     }
@@ -851,7 +851,7 @@ class CookrViewModel(
         try {
             textToSpeech?.stop()
             textToSpeech?.shutdown()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             e.printStackTrace()
         }
     }
