@@ -6,3 +6,10 @@ plugins {
   alias(libs.plugins.roborazzi) apply false
   alias(libs.plugins.secrets) apply false
 }
+
+tasks.register<Copy>("copyExpoAssets") {
+  from("app/src/main/res/drawable") {
+    include("*.png")
+  }
+  into("expo-assets")
+}

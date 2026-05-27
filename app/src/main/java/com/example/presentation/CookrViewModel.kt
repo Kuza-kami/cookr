@@ -136,13 +136,6 @@ class CookrViewModel(
                 e.printStackTrace()
             }
         }
-        viewModelScope.launch(Dispatchers.Main) {
-            try {
-                textToSpeech = TextToSpeech(application, this@CookrViewModel)
-            } catch (e: Throwable) {
-                e.printStackTrace()
-            }
-        }
     }
 
     override fun onInit(status: Int) {
@@ -150,6 +143,8 @@ class CookrViewModel(
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech?.language = Locale.US
                 isTtsReady.value = true
+            } else {
+                isTtsReady.value = false
             }
         } catch (e: Throwable) {
             e.printStackTrace()
@@ -158,13 +153,31 @@ class CookrViewModel(
     }
 
     fun speakInstruction(text: String) {
-        if (voiceInstructionsEnabled.value && isTtsReady.value) {
-            try {
+        if (!voiceInstructionsEnabled.value) return
+
+        try {
+            if (textToSpeech == null) {
+                // Lazily initialize in a separate main-thread safe block
+                textToSpeech = TextToSpeech(application) { status ->
+                    try {
+                        if (status == TextToSpeech.SUCCESS) {
+                            textToSpeech?.language = Locale.US
+                            isTtsReady.value = true
+                            textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "step_instruction")
+                        } else {
+                            isTtsReady.value = false
+                        }
+                    } catch (t: Throwable) {
+                        t.printStackTrace()
+                        isTtsReady.value = false
+                    }
+                }
+            } else if (isTtsReady.value) {
                 textToSpeech?.stop()
                 textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "step_instruction")
-            } catch (e: Throwable) {
-                e.printStackTrace()
             }
+        } catch (e: Throwable) {
+            e.printStackTrace()
         }
     }
 
